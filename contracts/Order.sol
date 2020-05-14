@@ -11,7 +11,7 @@ contract Order {
         address dstToken;
         uint256 srcAmount;
         uint256 dstAmount;
-        uint256 triggerPrice; // match with chainlink
+        uint256 triggerPrice;
         uint256 startTime;
         uint256 expiryTime;
         bool isCancelled;
@@ -35,7 +35,7 @@ contract Order {
     );
 
     event LogOrderExecuted(
-        uint256 indexed currPrice,
+        // uint256 indexed currPrice,
         uint256 redeemAmount,
         uint256 dstAmount
     );
@@ -112,6 +112,7 @@ contract Order {
             isBuy : _isBuy
         });
 
+        IERC20(detail.srcToken).approve(address(registry.aave()), detail.srcAmount);
         uint returnAmount = registry.aave().lend(detail.srcToken, detail.srcAmount);
 
         isInitC = true;
@@ -125,28 +126,48 @@ contract Order {
         notCancelled
         notExecuted
     {
-        uint256 currPrice = registry.chainlink().getPrice(detail.srcToken);
+        // require(detail.expiryTime > now, 'expired');
 
-        if(detail.isBuy) {
-            require(detail.triggerPrice <= currPrice, 'invalid buy trigger');
-        } else {
-            require(detail.triggerPrice >= currPrice, 'invalid sell trigger');
-        }
+        // uint256 currPrice = registry.chainlink().getPrice(detail.srcToken);
+
+        // if(!detail.isBuy) {
+        //     require(detail.triggerPrice <= currPrice, 'invalid sell trigger');
+        // } else {
+        //     require(detail.triggerPrice >= currPrice, 'invalid buy trigger');
+        // }
             
         detail.isExecuted = true;
         
         uint256 balance = registry.aave().balanceOf(address(this), detail.srcToken);
 
-        IERC20(detail.srcToken).approve(address(registry.aave()), balance);
+        address aToken = registry.aave().getAToken(detail.srcToken);
+
+        IERC20(aToken).approve(address(registry.aave()), balance);
         uint256 redeemAmount = registry.aave().redeem(detail.srcToken, balance);
 
-        IERC20(detail.srcToken).approve(address(registry.kyber()), redeemAmount);
-        uint256 dstAmount = registry.kyber().trade(detail.srcToken, detail.dstToken, redeemAmount);
+        uint256 dstAmount;
+        //only for kovan network
+        if(detail.srcToken == registry.bridge().AAVE_DAI()){
+            IERC20(detail.srcToken).approve(address(registry.bridge()), redeemAmount);
+            registry.bridge().up(redeemAmount);
+
+            IERC20(registry.bridge().KYBER_DAI()).approve(address(registry.kyber()), redeemAmount);
+            dstAmount = registry.kyber().trade(registry.bridge().KYBER_DAI(), detail.dstToken, redeemAmount);
+        } else if(detail.dstToken == registry.bridge().AAVE_DAI()){
+            IERC20(detail.srcToken).approve(address(registry.kyber()), redeemAmount);
+            dstAmount = registry.kyber().trade(detail.srcToken, registry.bridge().KYBER_DAI(), redeemAmount);
+
+            IERC20(registry.bridge().KYBER_DAI()).approve(address(registry.bridge()), dstAmount);
+            registry.bridge().down(dstAmount);
+        } else {
+            IERC20(detail.srcToken).approve(address(registry.kyber()), redeemAmount);
+            dstAmount = registry.kyber().trade(detail.srcToken, detail.dstToken, redeemAmount);
+        }
 
         IERC20(detail.dstToken).approve(address(registry.aave()), dstAmount);
         registry.aave().lend(detail.dstToken, dstAmount);
 
-        emit LogOrderExecuted(currPrice, redeemAmount, dstAmount);
+        emit LogOrderExecuted(redeemAmount, dstAmount);
     }
 
     function cancel()
@@ -159,7 +180,8 @@ contract Order {
         detail.isCancelled = true;
         uint256 balance = registry.aave().balanceOf(address(this), detail.srcToken);
 
-        IERC20(detail.srcToken).approve(address(registry.aave()), balance);
+        address aToken = registry.aave().getAToken(detail.srcToken);
+        IERC20(aToken).approve(address(registry.aave()), balance);
         uint256 returnAmount = registry.aave().redeem(detail.srcToken, balance);
 
         IERC20(detail.srcToken).transfer(user, returnAmount);
@@ -176,7 +198,8 @@ contract Order {
     {
         uint256 balance = registry.aave().balanceOf(address(this), detail.dstToken);
 
-        IERC20(detail.dstToken).approve(address(registry.aave()), balance);
+        address aToken = registry.aave().getAToken(detail.dstToken);
+        IERC20(aToken).approve(address(registry.aave()), balance);
         uint256 returnAmount = registry.aave().redeem(detail.dstToken, balance);
 
         detail.dstAmount = returnAmount;

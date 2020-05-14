@@ -49,9 +49,15 @@ contract AaveHandler {
         view
         returns (address)
     {
-        // LendingPool lendingPool = LendingPool(provider.getLendingPool());
         address coreAddr = provider.getLendingPoolCore();
-        return LendingPoolCore(coreAddr).getReserveATokenAddress(_tokenAddr);
+
+        address aToken;
+        if(_tokenAddr != address(weth9)) {
+            aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(_tokenAddr);
+        } else {
+            aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(ETH_ADDRESS);
+        }
+        return aToken;
     }
 
     function lend(address _tokenAddr, uint256 _amount)
@@ -80,8 +86,13 @@ contract AaveHandler {
         if(_tokenAddr != address(weth9)) {
             IERC20(_tokenAddr).approve(coreAddr, 0);
         }
+        address aToken;
+        if(_tokenAddr != address(weth9)) {
+            aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(_tokenAddr);
+        } else {
+            aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(ETH_ADDRESS);
+        }
 
-        address aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(_tokenAddr);
         IERC20(aToken).transfer(msg.sender, _amount);
 
         _lendTokenAmount = _amount;
@@ -94,8 +105,14 @@ contract AaveHandler {
         returns (uint256 _amount)
     {
         address coreAddr = provider.getLendingPoolCore();
-        address aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(_tokenAddr);
-
+        
+        address aToken;
+        if(_tokenAddr != address(weth9)) {
+            aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(_tokenAddr);
+        } else {
+            aToken = LendingPoolCore(coreAddr).getReserveATokenAddress(ETH_ADDRESS);
+        }
+        
         IERC20(aToken).transferFrom(msg.sender, address(this), _lendTokenAmount);
 
         AToken(aToken).redeem(_lendTokenAmount);
