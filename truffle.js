@@ -1,5 +1,5 @@
 const HDWalletProvider = require("truffle-hdwallet-provider");
-const MNEMONIC = "course soccer fiscal patch universe top similar coast volume margin position siege";
+const MNEMONIC = "";
 
 module.exports = {
   // Uncommenting the defaults below 
@@ -24,7 +24,7 @@ module.exports = {
     skipDryRun: true
    }
   //  ropsten: {
-  //   provider: new HDWalletProvider('98F6B9189278F82F9ADC4ED20CE9186DC5590D8B15BE4EC7E51CB0981455481C', 'https://ropsten.infura.io/v3/4804d796d12a4a97a9e6a529552d9104'),
+  //   provider: new HDWalletProvider('PVT_KEY', 'https://ropsten.infura.io/v3/4804d796d12a4a97a9e6a529552d9104'),
   //   network_id: 3,      
   //   gas: 8000000,    
   //   gasPrice: 9000000000,    
